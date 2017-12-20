@@ -16,8 +16,8 @@ OpenStreetMap Project.pdf
 OpenStreetMap Project.docx
 
 Map small sample from São Paulo area
+
 sample.osm
 
-Complete area from São Paulo area.
-SaoPaulo.osm
+
 
