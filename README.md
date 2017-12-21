@@ -2,7 +2,7 @@
 
 finalproject.py - Python source code
 
-CSV files to be imported to the database.
+CSV files to be imported to the database (they are zipped).
 
 nodes.csv
 nodes_tags.csv
