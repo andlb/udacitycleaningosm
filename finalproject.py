@@ -2,7 +2,7 @@ import csv
 import codecs
 import xml.etree.cElementTree as ET
 
-# Array values match the fields from the table.
+# List values match the fields from the table.
 NODE_FIELDS = ['id', 'lat', 'lon', 'user', 'uid', 'version', 'changeset', 'timestamp']
 NODE_TAGS_FIELDS = ['id', 'key', 'value', 'type']
 WAY_FIELDS = ['id', 'user', 'uid', 'version', 'changeset', 'timestamp']
@@ -47,27 +47,81 @@ OSM_PATH = "SaoPaulo.osm"
 
 
 
-def shape_element(element, 
-                  node_attr_fields=NODE_FIELDS,                   
-                  way_attr_fields=WAY_FIELDS):
-    """Return an dictionary to write the csv file"""
+def shape_element_node(element, 
+                  node_attr_fields=NODE_FIELDS):
+
+    """
+    Shape tag element "node" to write its content in a file.
+
+    Args:
+      element (obj): is a element from the xml file.
+      node_attr_fields (list, optional) is a list with the name of 
+        each property from the table node. Default to NODE_FIELDS list
+    
+    Returns:
+      dict: a dictionary indexed by node and node_tags key.
+        The value for node key is a dictionary 
+          which has as key the name of node table property and the value 
+          is the content from the xml element
+
+        The value for node_tags key is a list of dictionaries, 
+          and each dictionary has as key the nodes_tags property name and the value is the 
+          content from xml element.
+    """
 
     node_attribs = {}
+    tags = []            
+
+    node_attribs = getNodeAndWay(element,node_attr_fields)   
+    tags = getTag(element)
+    return {'node': node_attribs, 'node_tags': tags}
+
+
+def shape_element_way(element,                
+                  way_attr_fields=WAY_FIELDS):
+    """
+    Shape tag element "way" to write its content in a file.
+
+    Args:
+      element (obj): is a element from the xml file.
+      way_attr_fields (list, optional): is a list with the name of 
+        each property from the table way. Default to WAY_FIELDS list
+    
+    Returns:
+     dict: A dictionary indexed by way, way_nodes and way_tags key.
+      The value for way key is a dictionary 
+        which has as key the name of way table property and the value 
+        is the content from the xml element
+        
+      The value for way_nodes key is a list of dictionaries, 
+        and each dictionary has as key the way_nodes property name and the value is the 
+        content from xml element.
+
+      The value for way_tags key is a list of dictionaries, 
+        and each dictionary has as key the way_tags property name and the value is the 
+        content from xml element.
+    """
+    
     way_attribs = {}
     way_nodes = []
     tags = []
-    if element.tag == 'node':      
-      node_attribs = getNodeAndWay(element,node_attr_fields)   
-      tags = getTag(element)
-      return {'node': node_attribs, 'node_tags': tags}
-    elif element.tag == 'way':
-      way_attribs = getNodeAndWay(element,way_attr_fields)                  
-      way_nodes = getWayNode(element)
-      tags = getTag(element)
-      return {'way': way_attribs, 'way_nodes': way_nodes, 'way_tags': tags}
+
+    way_attribs = getNodeAndWay(element,way_attr_fields)                  
+    way_nodes = getWayNode(element)
+    tags = getTag(element)
+    return {'way': way_attribs, 'way_nodes': way_nodes, 'way_tags': tags}
+
 
 def getNodeAndWay(element,array):
-  """Return a dictionary with the way or node table fields value"""  
+  """
+  Create a dictionary where the key is the name of the table and the value is the content of the element.
+
+  Args:
+    element(obj): content from the element file.
+    array(dict): is the property name of the table. It can be a node or a way table
+
+  Returns:
+    dict: A dictionary with the way or node table fields value"""  
   t_attribs = {}
   for atr in array:
     if atr in element.attrib:
@@ -75,7 +129,15 @@ def getNodeAndWay(element,array):
   return t_attribs
 
 def getTag(element):
-  """ return a array of dictionary with the tag table fields value """
+  """ 
+  Create a list of dictionary and for each dictionary 
+    the key is the name of the table and the value is the content of the element.
+
+  Args:
+    element (obj): content from the element file.
+
+  Returns:
+    dict: A list of dictionary with the tag table fields value """
   tags = []
   for etag in element.iter("tag"):    
     if 'k' in etag.attrib:
@@ -107,7 +169,17 @@ def getTag(element):
   return tags
 
 def getWayNode(element):
-  """ return a array of dictionary with the "way node" table fields value """
+  """ 
+  Create a list of dictionaries and for each dictionary 
+    the key is the name of the table and the value is the content of the element.
+
+  Args:
+    element(obj): content from the element file.
+  
+  Returns:
+    list: A list of dictionary with the "way node" table fields value 
+  """
+
   way_nodes = []
   position = 0  
   for t in element.iter("nd"):
@@ -120,47 +192,96 @@ def getWayNode(element):
   return way_nodes
 
 
-def audity_street(value):
-  """Push the first part of the street name in an array"""
-  street = value.split(' ')
-  if not street[0] in expectedStreet:
-    return False
+def audity_street(street):
+  """
+    Verify if the street name is correct.
+    
+    Args:
+      street (str): street name
+
+    Returns:
+      bool: True if the start part of the street name is in the expectedStreet list, 
+          else, return False.
+  """
+  street = street.split(' ')
+  if street[0] in expectedStreet:
+    return True
   return False
     
 
-def audityandfix(value,diction=STREETS,mapstreet=MAPSTREET):
-  """Fix the street abbreviation or errors"""
-  ret = value
-  street = ret.split(" ")
-  street[0] = street[0].replace('.','').title()
-  if street[0] in mapstreet:
-    street[0] = mapstreet[street[0]]
-  ret = " ".join(street)
+def audityandfix(street,diction=STREETS,mapstreet=MAPSTREET):
+  """
+    Fix the street abbreviation or write a list of errors.
+
+    Args:
+      street (str): street name
+      diction (list, optional): is a list with the correct 
+        start street name. Default to STREETS dictionary
+      mapstreet (dict, optional): is a dictionary and its key is the wrong start street name value 
+        and its value is the correct. Default to MAPSTREET dictionary
+    
+    Returns:
+      str: When is possible to fix it will return
+        a string with the street name starting with one of the value of expectedStreet list. 
+        Else, it will return the street parameter value with the first letter in uppercase.
+      
+  """
+  ret = street
+  lstreet = ret.split(" ")
+  lstreet[0] = lstreet[0].replace('.','').title()
+  if lstreet[0] in mapstreet:
+    lstreet[0] = mapstreet[lstreet[0]]
+  ret = " ".join(lstreet)
   if not audity_street(ret):
-    if not street[0] in diction:
-      diction[street[0]] = 1
+    if not lstreet[0] in diction:
+      diction[lstreet[0]] = 1
     else:
-      diction[street[0]] = diction[street[0]] + 1  
+      diction[lstreet[0]] = diction[lstreet[0]] + 1  
   return ret
       
 
-def is_street(value):
-  """ Return True if the it is reading a street tag, else false"""
-  if value == "street":
+def is_street(street):
+  """ 
+  Verify if the element has the street name.
+  
+  Args:
+    street(str): tag value is being read.
+
+  Returns:
+    bool: True if it is reading a street tag, else false  
+  """
+  if street  == "street":
     return True
   else:
     return False
 
-def is_postalcode(value):
-  """ Return True if the it is reading a postal code tag, else false"""
-  if value == "postcode":
+def is_postalcode(tag):
+  """   
+  Verify if the element has the postal code.
+  
+  Args:
+    tag(str): tag value is being read.
+
+  Returns:
+    bool: True if it is reading a postal code tag, else false
+  """
+  if tag == "postcode":
     return True
   return False  
 
-def auditory_postalcode(value):
-  """return false when the post code doesn't follow the brazilian pattern"""
+def auditory_postalcode(postalcode):
+  """
+  Verify if the postal code follow the brazilian pattern.
+
+  Args:
+    postalcode (str): value of the element when it is a postal code type.
+
+  Returns:
+     bool: False when the post code doesn't follow the brazilian pattern, else true
+  """
+
   ret = True
-  postcode = value.split('-')
+  postcode = postalcode.split('-')
   if len(postcode) < 2:
     ret = False
   else:
@@ -170,10 +291,22 @@ def auditory_postalcode(value):
       ret = False
   return ret
 
-def fix_postalcode(value):
-  """Return the postal code when it is possible to fix or None when it is not"""  
-  if len(value) == 8:
-    nvalue = value[0:5] +'-'+value[5:] 
+def fix_postalcode(postalcode):
+  """  
+  Fix the postal code when it doesn't have the dash or when it doesn't have -000 in the end 
+
+  Args:
+    postalcode (str): value of the element when it is a postal code type.
+
+  Returns:
+    str: a string with the postal code when it is possible to fix or None when it is not
+
+  """  
+  if len(postalcode) == 8 or len(postalcode) == 5:
+    if len(postalcode) == 8:
+      nvalue = postalcode[0:5] +'-'+postalcode[5:] 
+    elif len(postalcode) == 5:
+      nvalue = postalcode[0:] + "-000"
     # verify if the new code is valid
     if auditory_postalcode(nvalue):
       return nvalue
@@ -195,14 +328,26 @@ def get_element(osm_file, tags=('node', 'way', 'relation')):
 
 
 def listtoarray(t_dictionary):
-  """Return an array based on a dictionary """  
+  """
+  Transform the dictionary values in list.
+
+  Args:
+    t_dictionary (dict). Dictionary content to change it to list.
+
+  Returns:
+    list: an list based on a dictionary value """  
   return [w for w in t_dictionary.values()]
 
 # ================================================== #
 #               Main Function                        #
 # ================================================== #
 def process_map(file):
-  """Processing each XML element and write to csv(s)"""  
+  """
+  Processing each XML element and write to csv(s)
+
+  Args:
+    file(str): a string with the path and the name of the file. 
+  """  
 
   with codecs.open(NODES_PATH, 'w', "utf-8-sig") as nodes_file, \
     codecs.open(NODE_TAGS_PATH, 'w', "utf-8-sig") as nodes_tags_file, \
@@ -223,13 +368,15 @@ def process_map(file):
     wWayNode.writerow(WAY_NODES_FIELDS)
     wWayTag.writerow(WAY_TAGS_FIELDS)      
     for element in get_element(file, tags=('node', 'way')):
-      el = shape_element(element)
+      
       #writing the rows in every file according the tag.
       if element.tag == 'node':
+        el = shape_element_node(element)
         wNode.writerow(listtoarray(el['node']))
         for lista in el['node_tags']:
           wNodeTag.writerow(listtoarray(lista))        
       elif element.tag == 'way':
+        el = shape_element_way(element)
         wWay.writerow(listtoarray(el['way']))
         for lista in el['way_nodes']:
           wWayNode.writerow(listtoarray(lista))
@@ -240,4 +387,3 @@ def process_map(file):
 if __name__ == '__main__':
   process_map(OSM_PATH)
   print(STREETS)
-
