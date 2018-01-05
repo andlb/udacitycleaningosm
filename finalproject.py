@@ -39,7 +39,7 @@ MAPSTREET = {
 }
 
 # Map file name
-OSM_PATH = "SaoPaulo.osm"
+OSM_PATH = "sample.osm"
 
 # ================================================== #
 #               Helper Functions                     #
